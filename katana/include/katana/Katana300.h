@@ -49,6 +49,7 @@ public:
 
   virtual void setLimits();
 
+  virtual bool executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj);
   virtual void freezeRobot();
   virtual bool moveJoint(int jointIndex, double turningAngle);
 
