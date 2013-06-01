@@ -221,7 +221,7 @@ void Katana300::testSpeed()
  *
  * @author Benjamin Reiner
  */
-bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj)
+bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, boost::function<bool ()> isPreemptRequested)
 {
 	std::vector<int> encoders(traj->at(0).splines.size());
 	ROS_DEBUG("Entered executeTrajectory. Spline size: %d, trajectory size: %d, number of motors: %d", (int)traj->at(0).splines.size(), (int)traj->size(), kni->getNumberOfMotors());
@@ -318,6 +318,12 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj)
 		  {
 			  ROS_ERROR("A motor crashed! Aborting to not destroy anything.");
 			  return false;
+		  }
+
+		  if(isPreemptRequested())
+		  {
+			  ROS_INFO("Preempt requested. Aborting the trajectory!");
+			  return true;
 		  }
 
 		}

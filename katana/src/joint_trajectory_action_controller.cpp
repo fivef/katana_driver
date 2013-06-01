@@ -42,6 +42,7 @@ JointTrajectoryActionController::JointTrajectoryActionController(boost::shared_p
   ros::NodeHandle node_;
 
   joints_ = katana_->getJointNames();
+  gripper_joints_ = katana_->getGripperJointNames();
 
 
   // Trajectory and goal constraints
@@ -400,7 +401,7 @@ bool JointTrajectoryActionController::queryStateService(pr2_controllers_msgs::Qu
 /**
  * Compares two vectors if they are set-equal (contain same elements in any order)
  */
-static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::string> &b)
+/*static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::string> &b)
 {
   if (a.size() != b.size())
     return false;
@@ -417,7 +418,7 @@ static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::
   }
 
   return true;
-}
+}*/
 
 void JointTrajectoryActionController::executeCB(const JTAS::GoalConstPtr &goal)
 {
@@ -471,17 +472,25 @@ void JointTrajectoryActionController::executeCBFollow(const FJTAS::GoalConstPtr 
 int JointTrajectoryActionController::executeCommon(const trajectory_msgs::JointTrajectory &trajectory,
                                                    boost::function<bool()> isPreemptRequested)
 {
-  if (!setsEqual(joints_, trajectory.joint_names))
+  if (!suitableJointGoal(trajectory.joint_names))
   {
     ROS_ERROR("Joints on incoming goal don't match our joints");
+
     for (size_t i = 0; i < trajectory.joint_names.size(); i++)
     {
       ROS_INFO("  incoming joint %d: %s", (int)i, trajectory.joint_names[i].c_str());
     }
+
     for (size_t i = 0; i < joints_.size(); i++)
     {
       ROS_INFO("  our joint      %d: %s", (int)i, joints_[i].c_str());
     }
+
+    for (size_t i = 0; i < gripper_joints_.size(); i++)
+	{
+	  ROS_INFO("  our gripper_joint      %d: %s", (int)i, gripper_joints_[i].c_str());
+	}
+
     return control_msgs::FollowJointTrajectoryResult::INVALID_JOINTS;
   }
 
@@ -531,7 +540,7 @@ int JointTrajectoryActionController::executeCommon(const trajectory_msgs::JointT
   }
 
   ROS_INFO("Sending trajectory to Katana arm...");
-  bool success = katana_->executeTrajectory(new_traj);
+  bool success = katana_->executeTrajectory(new_traj, isPreemptRequested);
   if (!success)
   {
     ROS_ERROR("Problem while transferring trajectory to Katana arm, aborting");
@@ -758,6 +767,37 @@ bool JointTrajectoryActionController::validTrajectory(const SpecifiedTrajectory 
       // TODO later: check acceleration limits
     }
   }
+  return true;
+}
+
+/**
+ * Checks if all joints in the joint goal match a among joints of the katana.
+ * Copied from the Joint_Movement_Action_Controller.
+ */
+bool JointTrajectoryActionController::suitableJointGoal(const std::vector<std::string> &jointGoalNames)
+{
+  for (size_t i = 0; i < jointGoalNames.size(); i++)
+  {
+    bool exists = false;
+
+    for (size_t j = 0; j < joints_.size(); j++)
+    {
+      if (jointGoalNames[i] == joints_[j])
+        exists = true;
+    }
+
+    for (size_t k = 0; k < gripper_joints_.size(); k++)
+    {
+      if (jointGoalNames[i] == gripper_joints_[k])
+        exists = true;
+    }
+    if (!exists)
+    {
+      ROS_ERROR("joint name %s is not one of our controlled joints", jointGoalNames[i].c_str());
+      return false;
+    }
+  }
+
   return true;
 }
 
