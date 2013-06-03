@@ -46,10 +46,12 @@ void Katana300::setLimits()
 
   // TODO: setting the limits this low shouldn't be necessary; the limits should
   //       be set to 2 (acc.) and 180 (vel.) and tested on real Katana 300
+  //fast: acc. 2 and vel. 180 (tested on real Katana 300)
+  //slow: acc. 1 and vel. 30
 
 
   kni->setMotorAccelerationLimit(0, 1);
-  kni->setMotorVelocityLimit(0, 30);
+  kni->setMotorVelocityLimit(0, 70);
 
   for (size_t i = 1; i < NUM_MOTORS; i++)
   {
@@ -105,8 +107,11 @@ bool Katana300::allJointsReady()
   {
     if (motor_status_[i] == MSF_MOTCRASHED)
       return false;
+    /*
     if (fabs(desired_angles_[i] - motor_angles[i]) > JOINTS_STOPPED_POS_TOLERANCE)
       return false;
+      */
+      
     if (fabs(motor_velocities_[i]) > JOINTS_STOPPED_VEL_TOLERANCE)
       return false;
   }
@@ -126,10 +131,15 @@ bool Katana300::allMotorsReady()
   {
     if (motor_status_[i] == MSF_MOTCRASHED)
       return false;
+
+    /*
     if (fabs(desired_angles_[i] - motor_angles[i]) > JOINTS_STOPPED_POS_TOLERANCE)
       return false;
+      */
+      
     if (fabs(motor_velocities_[i]) > JOINTS_STOPPED_VEL_TOLERANCE)
       return false;
+
   }
 
   return true;
@@ -210,6 +220,122 @@ void Katana300::testSpeed()
   //  Motor 5 - acceleration: 2 (= 1.597410), max speed: 180 (=0.718834)
   //     (TODO: the gripper duration can be calculated from this)
 }
+
+bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj)
+{
+	std::vector<int> encoders(traj->at(0).splines.size());
+	ROS_DEBUG("Entered executeTrajectory. Spline size: %d, trajectory size: %d, number of motors: %d", (int)traj->at(0).splines.size(), (int)traj->size(), kni->getNumberOfMotors());
+	try
+	{
+		// ------- wait until all motors idle
+		ros::Rate idleWait(10);
+		while (!allMotorsReady())
+		{
+			refreshMotorStatus();
+			ROS_DEBUG("Motor status: %d, %d, %d, %d, %d, %d", motor_status_[0], motor_status_[1], motor_status_[2], motor_status_[3], motor_status_[4], motor_status_[5]);
+
+			// ------- check if motors are blocked
+			// it is important to do this inside the allMotorsReady() loop, otherwise we
+			// could get stuck in a deadlock if the motors crash while we wait for them to
+			// become ready
+			if (someMotorCrashed())
+			{
+				ROS_WARN("Motors are crashed before executing trajectory! Unblocking...");
+
+				boost::recursive_mutex::scoped_lock lock(kni_mutex);
+				kni->unBlock();
+			}
+
+			idleWait.sleep();
+		}
+
+		// ------- wait until start time
+		ros::Time start_time = ros::Time(traj->at(0).start_time);
+		double time_until_start = (start_time - ros::Time::now()).toSec();
+
+		if (time_until_start < -0.01)
+		{
+		  ROS_WARN("Trajectory started %f s too late! Scheduled: %f, started: %f", -time_until_start, start_time.toSec(), ros::Time::now().toSec());
+		}
+		else if (time_until_start > 0.0)
+		{
+		  ROS_DEBUG("Sleeping %f seconds until scheduled start of trajectory", time_until_start);
+		  ros::Time::sleepUntil(start_time);
+		}
+
+		// ------- start trajectory
+		boost::recursive_mutex::scoped_lock lock(kni_mutex);
+
+		// fix start times: set the trajectory start time to now(); since traj is a shared pointer,
+		// this fixes the current_trajectory_ in joint_trajectory_action_controller, which synchronizes
+		// the "state" publishing to the actual start time (more or less)
+		double delay = ros::Time::now().toSec() - traj->at(0).start_time;
+		for (size_t i = 0; i < traj->size(); i++)
+		{
+		  traj->at(i).start_time += delay;
+		}
+
+		for (size_t i = 0; i < traj->size(); i++)
+		{
+		  ROS_DEBUG("Executing step %d", (int)i);
+		  Segment seg = traj->at(i);
+		  if (seg.splines.size() != joint_names_.size())
+		  {
+			ROS_ERROR("Wrong number of joints in specified trajectory (was: %zu, expected: %zu)!", seg.splines.size(), joint_names_.size());
+		  }
+
+		  // copy joint values and calculate to encoder values
+		  for (size_t j = 0; j < seg.splines.size(); j++)
+		  {
+			  encoders[j] = (int)converter->angle_rad2enc(j, seg.splines[j].target_position);
+			  desired_angles_[j] = seg.splines[j].target_position;
+		  }
+		  ROS_DEBUG("Encoders: %d, %d, %d, %d, %d, %d", encoders[0], encoders[1], encoders[2], encoders[3],encoders[4],  encoders[5]);
+
+		  kni->moveRobotToEnc(encoders, true);	//if the movement isn't smooth false could possibly help
+		  ROS_DEBUG("duration: %f", seg.duration);
+		  /*
+		  ros::Rate moveWait(1.0 / seg.duration);	// *1.5 duration is in seconds rate is Hz TODO: remove *
+		  moveWait.sleep();
+		  */
+		  refreshMotorStatus();
+		  if(someMotorCrashed())
+		  {
+			  ROS_ERROR("A motor crashed! Aborting to not destroy anything.");
+			  return false;
+		  }
+
+		}
+		//kni->moveRobotToEnc(encoders, true);	// to ensure that the goal position is reached
+		return true;
+	}
+	catch (const WrongCRCException &e)
+	{
+		ROS_ERROR("WrongCRCException: Two threads tried to access the KNI at once. This means that the locking in the Katana node is broken. (exception in executeTrajectory(): %s)", e.message().c_str());
+	}
+	catch (const ReadNotCompleteException &e)
+	{
+		ROS_ERROR("ReadNotCompleteException: Another program accessed the KNI. Please stop it and restart the Katana node. (exception in executeTrajectory(): %s)", e.message().c_str());
+	}
+	catch (const FirmwareException &e)
+	{
+		// TODO: find out what the real cause of this is when it happens again
+		// the message returned by the Katana is:
+		// FirmwareException : 'StopperThread: collision on axis: 1 (axis N)'
+		ROS_ERROR("FirmwareException: Motor collision? Perhaps we tried to send a trajectory that the arm couldn't follow. (exception in executeTrajectory(): %s)", e.message().c_str());
+	}
+	catch (const Exception &e)
+	{
+		ROS_ERROR("Unhandled exception in executeTrajectory(): %s", e.message().c_str());
+	}
+	catch (...)
+	{
+		ROS_ERROR("Unhandled exception in executeTrajectory()");
+	}
+
+	return false;
+}
+
 
 
 }
