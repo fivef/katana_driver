@@ -50,10 +50,12 @@ void Katana300::setLimits()
 
   // TODO: setting the limits this low shouldn't be necessary; the limits should
   //       be set to 2 (acc.) and 180 (vel.) and tested on real Katana 300
+  //fast: acc. 2 and vel. 180 (tested on real Katana 300)
+  //slow: acc. 1 and vel. 30
 
 
   kni->setMotorAccelerationLimit(0, 1);
-  kni->setMotorVelocityLimit(0, 30);
+  kni->setMotorVelocityLimit(0, 70);
 
   for (size_t i = 1; i < NUM_MOTORS; i++)
   {
@@ -109,8 +111,11 @@ bool Katana300::allJointsReady()
   {
     if (motor_status_[i] == MSF_MOTCRASHED)
       return false;
+    /*
     if (fabs(desired_angles_[i] - motor_angles[i]) > JOINTS_STOPPED_POS_TOLERANCE)
       return false;
+      */
+      
     if (fabs(motor_velocities_[i]) > JOINTS_STOPPED_VEL_TOLERANCE)
       return false;
   }
@@ -130,10 +135,15 @@ bool Katana300::allMotorsReady()
   {
     if (motor_status_[i] == MSF_MOTCRASHED)
       return false;
+
+    /*
     if (fabs(desired_angles_[i] - motor_angles[i]) > JOINTS_STOPPED_POS_TOLERANCE)
       return false;
+      */
+      
     if (fabs(motor_velocities_[i]) > JOINTS_STOPPED_VEL_TOLERANCE)
       return false;
+
   }
 
   return true;
@@ -308,10 +318,12 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, b
 					  );
 		  }
 
-		  kni->moveRobotToEnc(encoders, false);
+		  kni->moveRobotToEnc(encoders, true);	//if the movement isn't smooth false could possibly help
 		  ROS_DEBUG("duration: %f", seg.duration);
-		  ros::Rate moveWait( 1.0 / seg.duration * 1.8);	// duration is in seconds rate is Hz
+		  /*
+		  ros::Rate moveWait(1.0 / seg.duration);	// *1.5 duration is in seconds rate is Hz TODO: remove *
 		  moveWait.sleep();
+		  */
 
 		  refreshMotorStatus();
 		  if(someMotorCrashed())

@@ -51,6 +51,7 @@ public:
 
   virtual bool executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj,
 		  boost::function<bool ()> isPreemptRequested);
+
   virtual void freezeRobot();
   virtual bool moveJoint(int jointIndex, double turningAngle);
 
