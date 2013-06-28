@@ -29,6 +29,7 @@ namespace katana
 
 AbstractKatana::AbstractKatana()
 {
+
   // names and types for the 5 "real" joints
   joint_names_.resize(NUM_JOINTS);
   joint_types_.resize(NUM_JOINTS);
@@ -223,4 +224,9 @@ double AbstractKatana::getMotorLimitMin(std::string joint_name)
   return -1;
 }
 
+void AbstractKatana::stopTrajectoryExecution(){
+
+	ROS_WARN("Abstract stop Trajectory Execution");
+	return;
+}
 }

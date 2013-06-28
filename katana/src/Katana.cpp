@@ -602,20 +602,20 @@ void Katana::testSpeed()
   std::vector<double> pos2_angles(NUM_MOTORS);
 
   // these are safe values, i.e., no self-collision is possible
-  pos1_angles[0] = 2.88;
-  pos2_angles[0] = -3.02;
+  pos1_angles[0] = 2.8;
+  pos2_angles[0] = -1.5;
 
-  pos1_angles[1] = 0.15;
-  pos2_angles[1] = 2.16;
+  pos1_angles[1] = 0.5;
+  pos2_angles[1] = 2.10;
 
   pos1_angles[2] = 1.40;
-  pos2_angles[2] = -2.21;
+  pos2_angles[2] = 0.3;
 
   pos1_angles[3] = 0.50;
-  pos2_angles[3] = -2.02;
+  pos2_angles[3] = -2.00;
 
-  pos1_angles[4] = 2.86;
-  pos2_angles[4] = -2.98;
+  pos1_angles[4] = 2.8;
+  pos2_angles[4] = -2.75;
 
   pos1_angles[5] = -0.44;
   pos2_angles[5] = 0.30;

@@ -51,6 +51,7 @@ public:
   virtual bool executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj);
   virtual void freezeRobot();
   virtual bool moveJoint(int jointIndex, double turningAngle);
+  virtual void stopTrajectoryExecution();
 
   virtual void refreshMotorStatus();
   virtual bool allJointsReady();
@@ -63,6 +64,8 @@ public:
 
 private:
   std::vector<double> desired_angles_;
+
+  bool preempted_;
 
 };
 

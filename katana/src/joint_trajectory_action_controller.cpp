@@ -449,6 +449,7 @@ void JointTrajectoryActionController::executeCBFollow(const FJTAS::GoalConstPtr 
   {
     ROS_WARN("follow_joint_trajectory called while joint_trajectory_action was active, canceling joint_trajectory_action");
     action_server_.setPreempted();
+    katana_->stopTrajectoryExecution();
   }
 
   // TODO: check tolerances from action goal
@@ -459,8 +460,10 @@ void JointTrajectoryActionController::executeCBFollow(const FJTAS::GoalConstPtr 
 
   if (error_code == control_msgs::FollowJointTrajectoryResult::SUCCESSFUL)
     action_server_follow_.setSucceeded(result);
-  else if (error_code == PREEMPT_REQUESTED)
+  else if (error_code == PREEMPT_REQUESTED){
     action_server_follow_.setPreempted(); // don't return result here, PREEMPT_REQUESTED is not a valid error_code
+    katana_->stopTrajectoryExecution();
+  }
   else
     action_server_follow_.setAborted(result);
 }
@@ -574,6 +577,8 @@ int JointTrajectoryActionController::executeCommon(const trajectory_msgs::JointT
 
     if (isPreemptRequested())
     {
+
+      katana_->stopTrajectoryExecution();
       ROS_WARN("Goal canceled by client while waiting for trajectory to finish, aborting!");
       return PREEMPT_REQUESTED;
     }
