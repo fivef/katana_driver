@@ -236,7 +236,31 @@
       </inertial>
     </link>
 
+	<joint name="katana_motor5_wrist_roll_discs_joint" type="fixed">
+      <parent link="katana_motor5_wrist_roll_link" />
+      <child link="katana_motor5_wrist_roll_discs" />
+      <origin rpy="0 ${M_PI/2} 0" xyz="0.0375 0 0"/>
+    </joint>
+    
 
+    <link name="katana_motor5_wrist_roll_discs">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder length="0.025" radius="0.025" />
+      </geometry>
+
+      <material name="grey" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder length="0.025" radius="0.025" />
+      </geometry>
+    </collision>
+    <xacro:cylinder_inertial length="0.025" radius="0.025"  mass="0.05" />
+  </link>
+    
     <joint name="katana_gripper_joint" type="fixed">
       <parent link="katana_motor5_wrist_roll_link" />
       <child link="katana_gripper_link" />
