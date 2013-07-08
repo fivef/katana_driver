@@ -289,6 +289,13 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, b
 		for (size_t i = 0; i < traj->size(); i++)
 		{
 		  ROS_DEBUG("Executing step %d", (int)i);
+
+		  if(isPreemptRequested())
+		  {
+			  ROS_INFO("Preempt requested. Aborting the trajectory!");
+			  return true;
+		  }
+
 		  Segment seg = traj->at(i);
 
 		  // + 1 to be flexible enough to perform trajectories that include the gripper
@@ -319,13 +326,6 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, b
 					  );
 		  }
 
-		  kni->moveRobotToEnc(encoders, false);	//if the movement isn't smooth false could possibly help
-		  ROS_DEBUG("duration: %f", seg.duration);
-
-		  ros::Rate moveWait(1.0 / seg.duration);	// *1.5 duration is in seconds rate is Hz
-		  moveWait.sleep();
-
-
 		  refreshMotorStatus();
 		  if(someMotorCrashed())
 		  {
@@ -333,11 +333,11 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, b
 			  return false;
 		  }
 
-		  if(isPreemptRequested())
-		  {
-			  ROS_INFO("Preempt requested. Aborting the trajectory!");
-			  return true;
-		  }
+		  kni->moveRobotToEnc(encoders, false);	//if the movement isn't smooth false could possibly help
+		  ROS_DEBUG("duration: %f", seg.duration);
+
+		  ros::Rate moveWait(1.0 / seg.duration);	// *1.5 duration is in seconds rate is Hz
+		  moveWait.sleep();
 
 		}
 
