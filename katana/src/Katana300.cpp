@@ -22,6 +22,10 @@
  *  Authors:
  *    Hannes Raudies <h.raudies@hs-mannheim.de>
  *    Martin Günther <mguenthe@uos.de>
+ *
+ *  Modified on: May 26, 2013
+ *  Author:
+ *    Benjamin Reiner <reinerbe@hs-weingarten.de>
  */
 
 #include <katana/Katana300.h>
@@ -33,7 +37,6 @@ Katana300::Katana300() :
     Katana()
 {
   desired_angles_ = getMotorAngles();
-  preempted_ = false;
   setLimits();
 }
 
@@ -52,15 +55,17 @@ void Katana300::setLimits()
 
 
   kni->setMotorAccelerationLimit(0, 2);
-  kni->setMotorVelocityLimit(0, 150);
-
+  kni->setMotorVelocityLimit(0, 90);	// set to 90 to protect our old Katana
+std::cout << "Joint 0 " << converter->vel_enc2rad(0, 90) << std::endl;
   for (size_t i = 1; i < NUM_MOTORS; i++)
   {
     // These two settings probably only influence KNI functions like moveRobotToEnc(),
     // openGripper() and so on, and not the spline trajectories. We still set them
     // just to be sure.
     kni->setMotorAccelerationLimit(i, 2);
-    kni->setMotorVelocityLimit(i, 150);
+    kni->setMotorVelocityLimit(i, 90);
+
+    std::cout << "Joint " << i << " " << converter->vel_enc2rad(i, 90) << std::endl;
   }
 
 }
@@ -108,10 +113,12 @@ bool Katana300::allJointsReady()
   {
     if (motor_status_[i] == MSF_MOTCRASHED)
       return false;
-    /*
+
     if (fabs(desired_angles_[i] - motor_angles[i]) > JOINTS_STOPPED_POS_TOLERANCE)
+    {
       return false;
-      */
+    }
+
       
     if (fabs(motor_velocities_[i]) > JOINTS_STOPPED_VEL_TOLERANCE)
       return false;
@@ -153,11 +160,12 @@ void Katana300::testSpeed()
   std::vector<double> pos2_angles(NUM_MOTORS);
 
   // these are safe values, i.e., no self-collision is possible
+  // values on robot Kate
   pos1_angles[0] = 2.75;
   pos2_angles[0] = -1.5;
 
   pos1_angles[1] = 0.5;
-  pos2_angles[1] = 2.10;
+  pos2_angles[1] = 2.1;
 
   pos1_angles[2] = 1.40;
   pos2_angles[2] = 0.3;
@@ -222,11 +230,14 @@ void Katana300::testSpeed()
   //     (TODO: the gripper duration can be calculated from this)
 }
 
-bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj)
+/**
+ * The Katana 300 is not able to perform a trajectory the same the newer Katana versions do.
+ * Every point of the trajectory has to be send individually.
+ *
+ * @author Benjamin Reiner
+ */
+bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, boost::function<bool ()> isPreemptRequested)
 {
-	preempted_ = false;
-
-	std::vector<int> encoders(traj->at(0).splines.size());
 	ROS_DEBUG("Entered executeTrajectory. Spline size: %d, trajectory size: %d, number of motors: %d", (int)traj->at(0).splines.size(), (int)traj->size(), kni->getNumberOfMotors());
 	try
 	{
@@ -278,31 +289,29 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj)
 		  traj->at(i).start_time += delay;
 		}
 
-		for (size_t i = 0; i < traj->size(); i++)
-		{
-		  //cancel execution if preempted
-		  if(preempted_) return false;
+		// enable splines with gripper
+		bool isPresent;
+		int openEncoder, closeEncoder;
+		kni->getGripperParameters(isPresent, openEncoder, closeEncoder);
+		kni->setGripperParameters(false, openEncoder, closeEncoder);
 
-		  ROS_DEBUG("Executing step %d", (int)i);
-		  Segment seg = traj->at(i);
-		  if (seg.splines.size() != joint_names_.size())
+		for (size_t step = 0; step < traj->size(); step++)
+		{
+		  ROS_DEBUG("Executing step %d", (int)step);
+
+		  if(isPreemptRequested())
+		  {
+			  ROS_INFO("Preempt requested. Aborting the trajectory!");
+			  return true;
+		  }
+
+		  Segment seg = traj->at(step);
+
+		  // + 1 to be flexible enough to perform trajectories that include the gripper
+		  if (seg.splines.size() != joint_names_.size() && seg.splines.size() != (joint_names_.size() + 1))
 		  {
 			ROS_ERROR("Wrong number of joints in specified trajectory (was: %zu, expected: %zu)!", seg.splines.size(), joint_names_.size());
 		  }
-
-		  // copy joint values and calculate to encoder values
-		  for (size_t j = 0; j < seg.splines.size(); j++)
-		  {
-			  encoders[j] = (int)converter->angle_rad2enc(j, seg.splines[j].target_position);
-			  desired_angles_[j] = seg.splines[j].target_position;
-		  }
-		  ROS_DEBUG("Encoders: %d, %d, %d, %d, %d, %d", encoders[0], encoders[1], encoders[2], encoders[3],encoders[4],  encoders[5]);
-
-		  kni->moveRobotToEnc(encoders, false);	//if the movement isn't smooth false could possibly help
-		  ROS_DEBUG("duration: %f", seg.duration);
-
-		  ros::Rate moveWait(1.0 / seg.duration);	// *1.5 duration is in seconds rate is Hz TODO: remove *
-		  moveWait.sleep();
 
 		  refreshMotorStatus();
 		  if(someMotorCrashed())
@@ -311,7 +320,33 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj)
 			  return false;
 		  }
 
+		  if(!ros::ok())
+		  {
+			  ROS_INFO("Stop trajectory because ROS node is stopped.");
+			  return true;
+		  }
+
+		  // time in 10 ms units, seg.duration is in seconds
+		  short duration = static_cast<short>(seg.duration * 100);
+		  // copy joint values and calculate to encoder values
+		  for (size_t jointNo = 0; jointNo < seg.splines.size(); jointNo++)
+		  {
+			  short encoder = static_cast<short>(converter->angle_rad2enc(jointNo, seg.splines[jointNo].target_position));
+			  desired_angles_[jointNo] = seg.splines[jointNo].target_position;
+			  // the actial position
+			  short p1 = round(converter->angle_rad2enc(jointNo, seg.splines[jointNo].coef[0]));
+			  short p2 = round(64 * converter->vel_rad2enc(jointNo, seg.splines[jointNo].coef[1]));
+			  short p3 = round(1024 * converter->acc_rad2enc(jointNo, seg.splines[jointNo].coef[2]));
+			  short p4 = round(32768 * converter->jerk_rad2enc(jointNo, seg.splines[jointNo].coef[3]));
+
+			  kni->sendSplineToMotor(jointNo, encoder, duration, p1, p2, p3, p4);
+		  }
+
+		  ros::Time::sleepUntil(ros::Time(seg.start_time));
+		  kni->startSplineMovement(false);
+
 		}
+
 		//kni->moveRobotToEnc(encoders, true);	// to ensure that the goal position is reached
 		return true;
 	}
@@ -330,6 +365,10 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj)
 		// FirmwareException : 'StopperThread: collision on axis: 1 (axis N)'
 		ROS_ERROR("FirmwareException: Motor collision? Perhaps we tried to send a trajectory that the arm couldn't follow. (exception in executeTrajectory(): %s)", e.message().c_str());
 	}
+	catch (const MotorTimeoutException &e)
+	{
+		ROS_ERROR("MotorTimeoutException (exception in executeTrajectory(): %s)", e.what());
+	}
 	catch (const Exception &e)
 	{
 		ROS_ERROR("Unhandled exception in executeTrajectory(): %s", e.message().c_str());
@@ -340,12 +379,6 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj)
 	}
 
 	return false;
-}
-
-void Katana300::stopTrajectoryExecution(){
-	ROS_WARN("Stopping Trajectory Execution");
-	preempted_ = true;
-	return;
 }
 
 }

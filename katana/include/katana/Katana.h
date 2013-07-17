@@ -52,7 +52,10 @@ public:
   virtual ~Katana();
 
   void refreshEncoders();
-  virtual bool executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj);
+
+  virtual bool executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj,
+		  boost::function<bool ()> isPreemptRequested);
+
   virtual void freezeRobot();
   virtual bool moveJoint(int jointIndex, double turningAngle);
 
@@ -71,6 +74,8 @@ protected:
 
   KNIConverter* converter;
 
+  short round(const double x);
+
 private:
   ros::ServiceServer switch_motors_off_srv_;
   ros::ServiceServer switch_motors_on_srv_;
@@ -86,8 +91,6 @@ private:
   bool switchMotorsOff(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response);
   bool switchMotorsOn(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response);
   bool testSpeedSrv(std_srvs::Empty::Request &request, std_srvs::Empty::Response &response);
-
-  short round(const double x);
 };
 
 }
