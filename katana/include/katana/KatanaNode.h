@@ -31,6 +31,7 @@
 #include <katana/joint_trajectory_action_controller.h>
 #include <katana/joint_movement_action_controller.h>
 #include <katana/katana_gripper_grasp_controller.h>
+#include <katana/gripper_controller.h>
 
 #include <katana/AbstractKatana.h>
 #include <katana/Katana.h>
