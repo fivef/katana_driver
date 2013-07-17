@@ -29,21 +29,14 @@
 
 // Author: Stuart Glaser
 
-#include "ros/ros.h"
+#include "katana/gripper_controller.h"
 
-#include <actionlib/server/action_server.h>
-#include <control_msgs/JointControllerState.h>
-#include <control_msgs/GripperCommand.h>
-#include <control_msgs/GripperCommandAction.h>
-
-class GripperAction
+namespace katana
 {
-private:
-  typedef actionlib::ActionServer<control_msgs::GripperCommandAction> GAS;
-  typedef GAS::GoalHandle GoalHandle;
-public:
-  GripperAction(ros::NodeHandle &n) :
-    node_(n),
+
+ GripperAction::GripperAction(boost::shared_ptr<AbstractKatana> katana) :
+    node_(ros::NodeHandle()),
+    katana_(katana),
     action_server_(node_, "gripper_action_controller/gripper_command",
                    boost::bind(&GripperAction::goalCB, this, _1),
                    boost::bind(&GripperAction::cancelCB, this, _1), true),
@@ -61,34 +54,19 @@ public:
       node_.subscribe("state", 1, &GripperAction::controlStateCB, this);
 
     watchdog_timer_ = node_.createTimer(ros::Duration(1.0), &GripperAction::watchdog, this);
+
+    ROS_INFO("Gripper Controller started");
   }
 
-  ~GripperAction()
+ GripperAction::~GripperAction()
   {
     pub_controller_command_.shutdown();
     sub_controller_state_.shutdown();
     watchdog_timer_.stop();
   }
 
-private:
 
-  ros::NodeHandle node_;
-  GAS action_server_;
-  ros::Publisher pub_controller_command_;
-  ros::Subscriber sub_controller_state_;
-  ros::Timer watchdog_timer_;
-
-  bool has_active_goal_;
-  GoalHandle active_goal_;
-  ros::Time goal_received_;
-
-  double min_error_seen_;
-  double goal_threshold_;
-  double stall_velocity_threshold_;
-  double stall_timeout_;
-  ros::Time last_movement_time_;
-
-  void watchdog(const ros::TimerEvent &e)
+  void GripperAction::watchdog(const ros::TimerEvent &e)
   {
 
 	  /*
@@ -120,7 +98,7 @@ private:
     */
   }
 
-  void goalCB(GoalHandle gh)
+  void GripperAction::goalCB(GoalHandle gh)
   {
     // Cancels the currently active goal.
     if (has_active_goal_)
@@ -138,10 +116,47 @@ private:
 
     // Sends the command along to the controller.
     pub_controller_command_.publish(active_goal_.getGoal()->command);
+
+
+    ROS_INFO("Move Joint");
+    if(!katana_->moveJoint(GRIPPER_INDEX, active_goal_.getGoal()->command.position)){
+    	active_goal_.setCanceled();
+    	ROS_ERROR("Cancelling goal: moveJoint didn't work.");
+    }
+
+
+
+    // wait for gripper to open/close
+     ros::Duration(GRIPPER_OPENING_CLOSING_DURATION).sleep();
+
+
+
+     control_msgs::GripperCommandResult result;
+         result.position = active_goal_.getGoal()->command.position;
+         result.effort = active_goal_.getGoal()->command.max_effort;
+         result.reached_goal = true;
+         result.stalled = false;
+
+
+         active_goal_.setSucceeded(result);
+         has_active_goal_ = false;
+
+
+         control_msgs::GripperCommandFeedback feedback;
+          feedback.position = active_goal_.getGoal()->command.position;
+          feedback.effort = active_goal_.getGoal()->command.max_effort;
+          feedback.reached_goal = true;
+          feedback.stalled = false;
+
+     active_goal_.publishFeedback(feedback);
+
+     ROS_INFO("Gripper goal achieved");
+
+
     last_movement_time_ = ros::Time::now();
   }
 
-  void cancelCB(GoalHandle gh)
+  void GripperAction::cancelCB(GoalHandle gh)
   {
     if (active_goal_ == gh)
     {
@@ -161,9 +176,7 @@ private:
   }
 
 
-
-  control_msgs::JointControllerStateConstPtr last_controller_state_;
-  void controlStateCB(const control_msgs::JointControllerStateConstPtr &msg)
+  void GripperAction::controlStateCB(const control_msgs::JointControllerStateConstPtr &msg)
   {
     last_controller_state_ = msg;
     ros::Time now = ros::Time::now();
@@ -226,16 +239,5 @@ private:
     }
     active_goal_.publishFeedback(feedback);
   }
-};
 
-
-int main(int argc, char** argv)
-{
-  ros::init(argc, argv, "gripper_action_controller");
-  ros::NodeHandle node;
-  GripperAction jte(node);
-
-  ros::spin();
-
-  return 0;
 }
