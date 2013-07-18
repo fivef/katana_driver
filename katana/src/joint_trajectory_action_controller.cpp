@@ -42,6 +42,7 @@ JointTrajectoryActionController::JointTrajectoryActionController(boost::shared_p
   ros::NodeHandle node_;
 
   joints_ = katana_->getJointNames();
+  gripper_joints_ = katana_->getGripperJointNames();
 
 
   // Trajectory and goal constraints
@@ -400,7 +401,7 @@ bool JointTrajectoryActionController::queryStateService(pr2_controllers_msgs::Qu
 /**
  * Compares two vectors if they are set-equal (contain same elements in any order)
  */
-static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::string> &b)
+/*static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::string> &b)
 {
   if (a.size() != b.size())
     return false;
@@ -417,7 +418,7 @@ static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::
   }
 
   return true;
-}
+}*/
 
 void JointTrajectoryActionController::executeCB(const JTAS::GoalConstPtr &goal)
 {
@@ -449,7 +450,6 @@ void JointTrajectoryActionController::executeCBFollow(const FJTAS::GoalConstPtr 
   {
     ROS_WARN("follow_joint_trajectory called while joint_trajectory_action was active, canceling joint_trajectory_action");
     action_server_.setPreempted();
-    katana_->stopTrajectoryExecution();
   }
 
   // TODO: check tolerances from action goal
@@ -460,10 +460,8 @@ void JointTrajectoryActionController::executeCBFollow(const FJTAS::GoalConstPtr 
 
   if (error_code == control_msgs::FollowJointTrajectoryResult::SUCCESSFUL)
     action_server_follow_.setSucceeded(result);
-  else if (error_code == PREEMPT_REQUESTED){
+  else if (error_code == PREEMPT_REQUESTED)
     action_server_follow_.setPreempted(); // don't return result here, PREEMPT_REQUESTED is not a valid error_code
-    katana_->stopTrajectoryExecution();
-  }
   else
     action_server_follow_.setAborted(result);
 }
@@ -474,23 +472,39 @@ void JointTrajectoryActionController::executeCBFollow(const FJTAS::GoalConstPtr 
 int JointTrajectoryActionController::executeCommon(const trajectory_msgs::JointTrajectory &trajectory,
                                                    boost::function<bool()> isPreemptRequested)
 {
-  if (!setsEqual(joints_, trajectory.joint_names))
+  if (!suitableJointGoal(trajectory.joint_names))
   {
     ROS_ERROR("Joints on incoming goal don't match our joints");
+
     for (size_t i = 0; i < trajectory.joint_names.size(); i++)
     {
       ROS_INFO("  incoming joint %d: %s", (int)i, trajectory.joint_names[i].c_str());
     }
+
     for (size_t i = 0; i < joints_.size(); i++)
     {
       ROS_INFO("  our joint      %d: %s", (int)i, joints_[i].c_str());
     }
+
+    for (size_t i = 0; i < gripper_joints_.size(); i++)
+	{
+	  ROS_INFO("  our gripper_joint      %d: %s", (int)i, gripper_joints_[i].c_str());
+	}
+
     return control_msgs::FollowJointTrajectoryResult::INVALID_JOINTS;
+  }
+
+  if(trajectory.joint_names.size() == 6)
+  {
+	  // the requested trajectory includes the gripper, so add a gripper joint.
+	  ROS_INFO("Adding a gripper joint to joint vector.");
+	  joints_.push_back(gripper_joints_.at(0));
   }
 
   if (isPreemptRequested())
   {
     ROS_WARN("New action goal already seems to have been canceled!");
+    removeGripperJointName();
     return PREEMPT_REQUESTED;
   }
 
@@ -501,6 +515,7 @@ int JointTrajectoryActionController::executeCommon(const trajectory_msgs::JointT
   if (trajectory.points.empty())
   {
     // reset_trajectory_and_stop();
+	removeGripperJointName();
     return control_msgs::FollowJointTrajectoryResult::SUCCESSFUL;
   }
 
@@ -509,11 +524,13 @@ int JointTrajectoryActionController::executeCommon(const trajectory_msgs::JointT
   if (!new_traj)
   {
     ROS_ERROR("Could not calculate new trajectory, aborting");
+    removeGripperJointName();
     return control_msgs::FollowJointTrajectoryResult::INVALID_GOAL;
   }
   if (!validTrajectory(*new_traj))
   {
     ROS_ERROR("Computed trajectory did not fulfill all constraints!");
+    removeGripperJointName();
     return control_msgs::FollowJointTrajectoryResult::INVALID_GOAL;
   }
   current_trajectory_ = new_traj;
@@ -528,16 +545,18 @@ int JointTrajectoryActionController::executeCommon(const trajectory_msgs::JointT
     if (isPreemptRequested() || !ros::ok())
     {
       ROS_WARN("Goal canceled by client while waiting until scheduled start, aborting!");
+      removeGripperJointName();
       return PREEMPT_REQUESTED;
     }
     rate.sleep();
   }
 
   ROS_INFO("Sending trajectory to Katana arm...");
-  bool success = katana_->executeTrajectory(new_traj);
+  bool success = katana_->executeTrajectory(new_traj, isPreemptRequested);
   if (!success)
   {
     ROS_ERROR("Problem while transferring trajectory to Katana arm, aborting");
+    removeGripperJointName();
     return control_msgs::FollowJointTrajectoryResult::PATH_TOLERANCE_VIOLATED;
   }
 
@@ -551,6 +570,7 @@ int JointTrajectoryActionController::executeCommon(const trajectory_msgs::JointT
     if (katana_->someMotorCrashed())
     {
       ROS_ERROR("Some motor has crashed! Aborting trajectory...");
+      removeGripperJointName();
       return control_msgs::FollowJointTrajectoryResult::PATH_TOLERANCE_VIOLATED;
     }
 
@@ -566,26 +586,27 @@ int JointTrajectoryActionController::executeCommon(const trajectory_msgs::JointT
       {
         // joints are idle and we are inside goal constraints. yippie!
         ROS_INFO("Goal reached.");
+        removeGripperJointName();
         return control_msgs::FollowJointTrajectoryResult::SUCCESSFUL;
       }
       else
       {
         ROS_ERROR("Joints are idle and motors are not crashed, but we did not reach the goal position! WTF?");
+        removeGripperJointName();
         return control_msgs::FollowJointTrajectoryResult::GOAL_TOLERANCE_VIOLATED;
       }
     }
 
     if (isPreemptRequested())
     {
-
-      katana_->stopTrajectoryExecution();
       ROS_WARN("Goal canceled by client while waiting for trajectory to finish, aborting!");
+      removeGripperJointName();
       return PREEMPT_REQUESTED;
     }
 
     goalWait.sleep();
   }
-
+  removeGripperJointName();
   // this part is only reached when node is shut down
   return PREEMPT_REQUESTED;
 }
@@ -764,6 +785,50 @@ bool JointTrajectoryActionController::validTrajectory(const SpecifiedTrajectory 
     }
   }
   return true;
+}
+
+/**
+ * Checks if all joints in the joint goal match a among joints of the katana.
+ * Copied from the Joint_Movement_Action_Controller.
+ */
+bool JointTrajectoryActionController::suitableJointGoal(const std::vector<std::string> &jointGoalNames)
+{
+  for (size_t i = 0; i < jointGoalNames.size(); i++)
+  {
+    bool exists = false;
+
+    for (size_t j = 0; j < joints_.size(); j++)
+    {
+      if (jointGoalNames[i] == joints_[j])
+        exists = true;
+    }
+
+    for (size_t k = 0; k < gripper_joints_.size(); k++)
+    {
+      if (jointGoalNames[i] == gripper_joints_[k])
+        exists = true;
+    }
+    if (!exists)
+    {
+      ROS_ERROR("joint name %s is not one of our controlled joints", jointGoalNames[i].c_str());
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/*
+ * This method removes the gripper joint from the joints_ vector.
+ * It is removed to have a clan state as before adding the joint.
+ */
+void JointTrajectoryActionController::removeGripperJointName()
+{
+	if(joints_.size() == 6 && joints_.at(5) == gripper_joints_.at(0))
+	{
+		ROS_INFO("Removing the gripper joint again");
+		joints_.pop_back();			// remove gripper joint to have a clean state
+	}
 }
 
 }
