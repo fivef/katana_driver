@@ -44,9 +44,9 @@ public:
   virtual ~AbstractKatana();
 
   virtual void refreshEncoders() = 0;
-  virtual bool executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj) = 0;
+  virtual bool executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj,
+		  boost::function<bool ()> isPreemptRequested) = 0;
   virtual void freezeRobot();
-  virtual void stopTrajectoryExecution();
 
   /**
    * Move the joint to the desired angle. Do not wait for result,
@@ -96,7 +96,6 @@ protected:
   // the motor limits of the 6 motors
 
   std::vector<arm_navigation_msgs::JointLimits> motor_limits_;
-
 };
 
 }
