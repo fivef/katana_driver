@@ -276,7 +276,7 @@
 
       <link name="katana_${prefix}_finger_link">
         <visual>
-          <origin rpy="0 ${M_PI} 0" xyz="0 0 0"/>
+          <origin rpy="0 ${M_PI} 0.27" xyz="0 0 0"/>
           <geometry>
             <mesh filename="package://katana_description/meshes/katana/katana_gripper_${prefix}_finger.stl"/>
           </geometry>
@@ -284,7 +284,7 @@
           <material name="grey" />
         </visual>
         <collision>
-          <origin rpy="0 ${M_PI} 0" xyz="0 0 0"/>
+          <origin rpy="0 ${M_PI} 0.27" xyz="0 0 0"/>
           <geometry>
             <mesh filename="package://katana_description/meshes/katana/convex/katana_gripper_${prefix}_finger_convex.stl"/>
           </geometry>
@@ -297,6 +297,34 @@
             izz="0.000023588" />        
         </inertial>
       </link>
+      <!--
+      <joint name="katana__${prefix}_finger_tip_join" type="fixed">
+        <parent link="katana_${prefix}_finger_link" />
+        <child link="kurtana__${prefix}_finger_tip_link" />
+        <origin rpy="0 0 0.37" xyz="0.09 0.045 0"/>
+      </joint>
+      
+      <link name="kurtana__${prefix}_finger_tip_link">
+	    <visual>
+	      <origin xyz="0 0 0" rpy="0 0 0" />
+	      <geometry>
+	        <box size="0.02 0.005 0.02" />
+	      </geometry>
+	
+	      <material name="grey" />
+	    </visual>
+	    <collision>
+	      <origin xyz="0 0 0" rpy="0 0 0" />
+	      <geometry>
+	        <box size="0.02 0.005 0.02" />
+	      </geometry>
+	    </collision>
+	    <xacro:box_inertial x="0.02" y="0.005" z="0.02" mass="0.01" />
+	  </link>
+	  
+	  -->
+      
+      
     </xacro:macro>
 
     <xacro:finger prefix="r" rotate="0" />
