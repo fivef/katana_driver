@@ -117,6 +117,7 @@ namespace katana
     // Sends the command along to the controller.
     pub_controller_command_.publish(active_goal_.getGoal()->command);
 
+    ROS_INFO_STREAM("Gripper target position: " << active_goal_.getGoal()->command.position << "effort: " << active_goal_.getGoal()->command.max_effort);
 
     ROS_INFO("Move Joint");
     if(!katana_->moveJoint(GRIPPER_INDEX, active_goal_.getGoal()->command.position)){
