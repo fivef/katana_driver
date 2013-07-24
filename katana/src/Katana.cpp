@@ -670,4 +670,19 @@ void Katana::testSpeed()
   //     (TODO: the gripper duration can be calculated from this)
 }
 
+void Katana::testForces()
+{
+
+	ROS_INFO_STREAM("KNI: Number of Motors: " << kni->getNumberOfMotors());
+
+	ROS_INFO_STREAM("KNI: force of motor 6: " << kni->getForce(6));
+
+	kni->setForceLimit(6,2);
+
+	ROS_INFO_STREAM("KNI: force of motor 6: " << kni->getForce(6));
+
+	moveJoint(6, -0.40);
+
+}
+
 }
