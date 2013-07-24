@@ -66,6 +66,7 @@ public:
 
   virtual void setLimits(void);
   virtual void testSpeed();
+  virtual void testForces();
 
 protected:
   boost::shared_ptr<CLMBase> kni;
