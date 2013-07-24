@@ -17,6 +17,7 @@
   <property name="link3_length" value="0.139" />
   <property name="link4_length" value="0.1523" />
   <property name="link5_length" value="0.1505" />
+  <property name="tool_frame_offset" value="-0.11" />
 
   <!-- All inertial values (mass, center of mass and inertia tensor) have been
        calculated from the meshes using MeshLab -->
@@ -235,7 +236,31 @@
       </inertial>
     </link>
 
+	<joint name="katana_motor5_wrist_roll_discs_joint" type="fixed">
+      <parent link="katana_motor5_wrist_roll_link" />
+      <child link="katana_motor5_wrist_roll_discs" />
+      <origin rpy="0 ${M_PI/2} 0" xyz="0.0375 0 0"/>
+    </joint>
+    
 
+    <link name="katana_motor5_wrist_roll_discs">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder length="0.025" radius="0.025" />
+      </geometry>
+
+      <material name="grey" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder length="0.025" radius="0.025" />
+      </geometry>
+    </collision>
+    <xacro:cylinder_inertial length="0.025" radius="0.025"  mass="0.05" />
+  </link>
+    
     <joint name="katana_gripper_joint" type="fixed">
       <parent link="katana_motor5_wrist_roll_link" />
       <child link="katana_gripper_link" />
@@ -276,7 +301,7 @@
 
       <link name="katana_${prefix}_finger_link">
         <visual>
-          <origin rpy="0 ${M_PI} 0" xyz="0 0 0"/>
+          <origin rpy="0 ${M_PI} 0.27" xyz="0 0 0"/>
           <geometry>
             <mesh filename="package://katana_description/meshes/katana/katana_gripper_${prefix}_finger.stl"/>
           </geometry>
@@ -284,7 +309,7 @@
           <material name="grey" />
         </visual>
         <collision>
-          <origin rpy="0 ${M_PI} 0" xyz="0 0 0"/>
+          <origin rpy="0 ${M_PI} 0.27" xyz="0 0 0"/>
           <geometry>
             <mesh filename="package://katana_description/meshes/katana/convex/katana_gripper_${prefix}_finger_convex.stl"/>
           </geometry>
@@ -297,18 +322,43 @@
             izz="0.000023588" />        
         </inertial>
       </link>
+      <!--
+      <joint name="katana__${prefix}_finger_tip_join" type="fixed">
+        <parent link="katana_${prefix}_finger_link" />
+        <child link="kurtana__${prefix}_finger_tip_link" />
+        <origin rpy="0 0 0.37" xyz="0.09 0.045 0"/>
+      </joint>
+      
+      <link name="kurtana__${prefix}_finger_tip_link">
+	    <visual>
+	      <origin xyz="0 0 0" rpy="0 0 0" />
+	      <geometry>
+	        <box size="0.02 0.005 0.02" />
+	      </geometry>
+	
+	      <material name="grey" />
+	    </visual>
+	    <collision>
+	      <origin xyz="0 0 0" rpy="0 0 0" />
+	      <geometry>
+	        <box size="0.02 0.005 0.02" />
+	      </geometry>
+	    </collision>
+	    <xacro:box_inertial x="0.02" y="0.005" z="0.02" mass="0.01" />
+	  </link>
+	  
+	  -->
+      
+      
     </xacro:macro>
 
     <xacro:finger prefix="r" rotate="0" />
     <xacro:finger prefix="l" rotate="${M_PI}" />
 
-
-
-
     <joint name="katana_gripper_tool_frame_joint" type="fixed">
       <parent link="katana_motor5_wrist_roll_link"/>
       <child link="katana_gripper_tool_frame" />
-      <origin xyz="0 0 -${link5_length}" rpy="0 ${M_PI/2} 0"/>
+      <origin xyz="0 0 ${tool_frame_offset}" rpy="0 ${M_PI/2} 0"/>
     </joint>
 
     <link name="katana_gripper_tool_frame">
@@ -316,20 +366,4 @@
          used in IK etc., relative to the base frame); there is no actual
          arm part attached to this link -->
   </link>
-
-
-
-  <!-- **************************************************************** -->
-
-  <joint name="katana_base_frame_joint" type="fixed">
-    <parent link="katana_base_link"/>
-    <child link="katana_base_frame" />
-    <origin xyz="0 0 ${base_height}" rpy="0 0 0"/>
-  </joint>
-
-  <link name="katana_base_frame">
-    <!-- This is the reference coordinate system of the arm (the KNI kinematics are specified
-         in this frame); there is no actual arm part attached to this link -->
-  </link>
-
 </robot>

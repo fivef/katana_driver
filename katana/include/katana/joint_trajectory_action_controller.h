@@ -69,6 +69,7 @@ private:
 
   // robot and joint state
   std::vector<std::string> joints_; // controlled joints, same order as expected by the KNI (index 0 = first motor, ...)
+  std::vector<std::string> gripper_joints_;
   boost::shared_ptr<AbstractKatana> katana_;
 
   // parameters
@@ -108,6 +109,10 @@ private:
   bool goalReached();
 
   bool allJointsStopped();
+
+  bool suitableJointGoal(const std::vector<std::string>& jointGoalNames);
+
+  void removeGripperJointName();
 };
 }
 

@@ -73,6 +73,7 @@ int KatanaNode::loop()
   JointMovementActionController jointMovementActionController(katana);
   JointTrajectoryActionController jointTrajectoryActionController(katana);
   KatanaGripperGraspController katanaGripperGraspController(katana);
+  GripperAction gripperAction(katana);
 
   while (ros::ok())
   {

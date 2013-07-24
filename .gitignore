@@ -8,3 +8,8 @@ lib/
 msg_gen/
 srv_gen/
 *.pyc
+katana/CATKIN_IGNORE
+katana/catkin/
+katana/catkin_generated/
+katana/devel/
+katana/gtest/

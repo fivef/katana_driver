@@ -276,7 +276,7 @@ void Katana::refreshMotorStatus()
  *
  * @param traj
  */
-bool Katana::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj)
+bool Katana::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, boost::function<bool ()> isPreemptRequested)
 {
   assert(traj->size() > 0);
 
@@ -668,6 +668,21 @@ void Katana::testSpeed()
   //  Motor 4 - acceleration: 2 (= -4.908739), max speed: 180 (=-2.208932)
   //  Motor 5 - acceleration: 2 (= 1.597410), max speed: 180 (=0.718834)
   //     (TODO: the gripper duration can be calculated from this)
+}
+
+void Katana::testForces()
+{
+
+	ROS_INFO_STREAM("KNI: Number of Motors: " << kni->getNumberOfMotors());
+
+	ROS_INFO_STREAM("KNI: force of motor 6: " << kni->getForce(6));
+
+	kni->setForceLimit(6,2);
+
+	ROS_INFO_STREAM("KNI: force of motor 6: " << kni->getForce(6));
+
+	moveJoint(6, -0.40);
+
 }
 
 }

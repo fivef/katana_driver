@@ -52,7 +52,10 @@ public:
   virtual ~Katana();
 
   void refreshEncoders();
-  virtual bool executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj);
+
+  virtual bool executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj,
+		  boost::function<bool ()> isPreemptRequested);
+
   virtual void freezeRobot();
   virtual bool moveJoint(int jointIndex, double turningAngle);
 
@@ -63,6 +66,7 @@ public:
 
   virtual void setLimits(void);
   virtual void testSpeed();
+  virtual void testForces();
 
 protected:
   boost::shared_ptr<CLMBase> kni;
