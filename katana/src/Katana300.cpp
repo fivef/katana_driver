@@ -342,7 +342,7 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, b
 			  kni->sendSplineToMotor(jointNo, encoder, duration, p1, p2, p3, p4);
 		  }
 
-		  ros::Time::sleepUntil(ros::Time(seg.start_time));
+		  ros::Time::sleepUntil(ros::Time(seg.start_time - 0.025));
 		  kni->startSplineMovement(false);
 
 		}
