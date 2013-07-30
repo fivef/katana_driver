@@ -125,7 +125,6 @@ namespace katana
     }
 
 
-
     // wait for gripper to open/close
      ros::Duration(GRIPPER_OPENING_CLOSING_DURATION).sleep();
 

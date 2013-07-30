@@ -68,6 +68,10 @@ std::cout << "Joint 0 " << converter->vel_enc2rad(0, 90) << std::endl;
     std::cout << "Joint " << i << " " << converter->vel_enc2rad(i, 90) << std::endl;
   }
 
+  kni->setMotorAccelerationLimit(5, 2);
+  kni->setMotorVelocityLimit(5, 150);
+
+
 }
 
 /**
