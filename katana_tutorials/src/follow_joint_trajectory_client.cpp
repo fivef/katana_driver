@@ -84,7 +84,7 @@ control_msgs::FollowJointTrajectoryGoal FollowJointTrajectoryClient::makeArmUpTr
   // arm pointing straight up
   std::vector<double> straight_up_positions(NUM_JOINTS);
   straight_up_positions[0] = 0.0;
-  straight_up_positions[1] = 1.57;
+  straight_up_positions[1] = 0.57;
   straight_up_positions[2] = 0.0;
   straight_up_positions[3] = 0.0;
   straight_up_positions[4] = 0.0;
