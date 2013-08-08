@@ -68,8 +68,10 @@ std::cout << "Joint 0 " << converter->vel_enc2rad(0, 90) << std::endl;
     std::cout << "Joint " << i << " " << converter->vel_enc2rad(i, 90) << std::endl;
   }
 
-  kni->setMotorAccelerationLimit(5, 2);
-  kni->setMotorVelocityLimit(5, 150);
+  kni->setMotorAccelerationLimit(GRIPPER_INDEX, 2);
+  kni->setMotorVelocityLimit(GRIPPER_INDEX, 255);
+
+  ROS_INFO("KNI Motor Acceleration Limit: %d", kni->getMotorAccelerationLimit(GRIPPER_INDEX));
 
 
 }
