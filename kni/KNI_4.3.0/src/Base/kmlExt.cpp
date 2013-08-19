@@ -516,7 +516,6 @@ CKatana::moveRobotToEnc4D(std::vector<int> target, int velocity, int acceleratio
 	int n, maxDistance = 0;
 	short numberOfMotors = getNumberOfMotors();
     std::vector<int> diffMot,speed,oldSpeed;
-
 	//Find the maximun difference between actual and target position for each motor
 	for (n=0;n<numberOfMotors;n++){
 		diffMot.push_back(std::abs(getMotorEncoders(n,true)-target.at(n)));
@@ -527,6 +526,10 @@ CKatana::moveRobotToEnc4D(std::vector<int> target, int velocity, int acceleratio
 	for (n=0;n<numberOfMotors;n++){
 	     oldSpeed.push_back(getMotorVelocityLimit(n));
 	     speed.push_back(max(static_cast<int>((static_cast<double>(diffMot.at(n))/maxDistance) * velocity),10));
+       if(n == 2)
+       {
+        speed[2] = speed[2] + 6;
+       }
 	     setMotorVelocityLimit(n,speed.at(n));
 	     setMotorAccelerationLimit(n,acceleration);
 	}

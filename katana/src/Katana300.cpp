@@ -54,16 +54,16 @@ void Katana300::setLimits()
   //slow: acc. 1 and vel. 30
 
 
-  kni->setMotorAccelerationLimit(0, 2);
-  kni->setMotorVelocityLimit(0, 90);	// set to 90 to protect our old Katana
+  kni->setMotorAccelerationLimit(0, 1);
+  kni->setMotorVelocityLimit(0, 30);	// set to 90 to protect our old Katana
 
   for (size_t i = 1; i < NUM_MOTORS; i++)
   {
     // These two settings only influence KNI functions like moveRobotToEnc(),
     // openGripper() and so on, and not the spline trajectories. We still set them
     // just to be sure.
-    kni->setMotorAccelerationLimit(i, 2);
-    kni->setMotorVelocityLimit(i, 90);
+    kni->setMotorAccelerationLimit(i, 1);
+    kni->setMotorVelocityLimit(i, 30);
   }
 
 }
@@ -260,9 +260,12 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, b
 
 			idleWait.sleep();
 		}
-
+/*
 		// ------- wait until start time
 		ros::Time start_time = ros::Time(traj->at(0).start_time);
+    ROS_WARN("Start time in sec: %f", start_time.toSec());
+
+
 		double time_until_start = (start_time - ros::Time::now()).toSec();
 
 		if (time_until_start < -0.01)
@@ -274,17 +277,23 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, b
 		  ROS_DEBUG("Sleeping %f seconds until scheduled start of trajectory", time_until_start);
 		  ros::Time::sleepUntil(start_time);
 		}
+*/
 
 		// ------- start trajectory
 		boost::recursive_mutex::scoped_lock lock(kni_mutex);
-
+/*
 		// fix start times: set the trajectory start time to now(); since traj is a shared pointer,
 		// this fixes the current_trajectory_ in joint_trajectory_action_controller, which synchronizes
 		// the "state" publishing to the actual start time (more or less)
 		double delay = ros::Time::now().toSec() - traj->at(0).start_time + 0.2;
+
+    ROS_WARN("Add a delay to trajectory start times: %f", delay);
+
 		for (size_t i = 0; i < traj->size(); i++)
 		{
+      ROS_WARN("Start time in delay loop in sec: %f", traj->at(i).start_time);
 		  traj->at(i).start_time += delay;
+      ROS_WARN("Start time in delay loop with delay added in sec: %f", traj->at(i).start_time);
 		}
 
 		// enable splines with gripper
@@ -338,16 +347,40 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, b
 			  short p2 = round(64 * converter->vel_rad2enc(jointNo, seg.splines[jointNo].coef[1]));
 			  short p3 = round(1024 * converter->acc_rad2enc(jointNo, seg.splines[jointNo].coef[2]));
 			  short p4 = round(32768 * converter->jerk_rad2enc(jointNo, seg.splines[jointNo].coef[3]));
-
+*/
+        /*
+        ROS_DEBUG_STREAM("encoder target position: " << seg.splines[jointNo].target_position);
+        ROS_DEBUG_STREAM("p1 position: " << converter->angle_rad2enc(jointNo, seg.splines[jointNo].coef[0]) << "rounded: " << p1);   
+        ROS_DEBUG_STREAM("p2 velocity: " << 64 * converter->vel_rad2enc(jointNo, seg.splines[jointNo].coef[1]));
+        ROS_DEBUG_STREAM("p3 acceleration: " << 1024 * converter->acc_rad2enc(jointNo, seg.splines[jointNo].coef[2]));
+        ROS_DEBUG_STREAM("p4 jerk: " << 32768 * converter->jerk_rad2enc(jointNo, seg.splines[jointNo].coef[3]));
+        */
+     /*
 			  kni->sendSplineToMotor(jointNo, encoder, duration, p1, p2, p3, p4);
 		  }
-      ROS_INFO("Step %d, duration %d, start time %f", step, duration, seg.start_time);
+      
 		  ros::Time::sleepUntil(ros::Time(seg.start_time));
+
+
+      //ros::Duration(seg.duration * 1.01).sleep();
+
 		  
       kni->startSplineMovement(false);
 
-		}
 
+      
+
+		}
+*/
+    std::vector<int> encoders;
+    Segment seg = traj->at(traj->size() - 1);
+    for (size_t jointNo = 0; jointNo < seg.splines.size(); jointNo++)
+    {
+      encoders.push_back(static_cast<int>(converter->angle_rad2enc(jointNo, seg.splines[jointNo].target_position)));
+    }
+    std::vector<int> robotEncoders = kni->getRobotEncoders(true);
+    encoders.push_back(robotEncoders[5]);
+    	kni->moveRobotToEnc4D(encoders, 70, 1);
 		//kni->moveRobotToEnc(encoders, true);	// to ensure that the goal position is reached
 		return true;
 	}
