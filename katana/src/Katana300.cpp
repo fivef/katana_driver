@@ -55,7 +55,7 @@ void Katana300::setLimits()
 
 
   kni->setMotorAccelerationLimit(0, 1);
-  kni->setMotorVelocityLimit(0, 30);	// set to 90 to protect our old Katana
+  kni->setMotorVelocityLimit(0, 15);	// set to 90 to protect our old Katana
 
   for (size_t i = 1; i < NUM_MOTORS; i++)
   {
@@ -63,9 +63,10 @@ void Katana300::setLimits()
     // openGripper() and so on, and not the spline trajectories. We still set them
     // just to be sure.
     kni->setMotorAccelerationLimit(i, 1);
-    kni->setMotorVelocityLimit(i, 30);
+    kni->setMotorVelocityLimit(i, 15);
   }
-
+  kni->setMotorAccelerationLimit(5, 2);
+  kni->setMotorVelocityLimit(5, 255);
 }
 
 /**
@@ -119,7 +120,9 @@ bool Katana300::allJointsReady()
 
       
     if (fabs(motor_velocities_[i]) > JOINTS_STOPPED_VEL_TOLERANCE)
+    {
       return false;
+    }
   }
 
   return true;
@@ -376,6 +379,7 @@ bool Katana300::executeTrajectory(boost::shared_ptr<SpecifiedTrajectory> traj, b
     Segment seg = traj->at(traj->size() - 1);
     for (size_t jointNo = 0; jointNo < seg.splines.size(); jointNo++)
     {
+      desired_angles_[jointNo] = seg.splines[jointNo].target_position;
       encoders.push_back(static_cast<int>(converter->angle_rad2enc(jointNo, seg.splines[jointNo].target_position)));
     }
     std::vector<int> robotEncoders = kni->getRobotEncoders(true);
