@@ -530,6 +530,10 @@ CKatana::moveRobotToEnc4D(std::vector<int> target, int velocity, int acceleratio
        {
         speed[2] = speed[2] + 6;
        }
+       if(n == 3)
+       {
+        speed[3] = speed[3] + 6;
+       }
 	     setMotorVelocityLimit(n,speed.at(n));
 	     setMotorAccelerationLimit(n,acceleration);
 	}
