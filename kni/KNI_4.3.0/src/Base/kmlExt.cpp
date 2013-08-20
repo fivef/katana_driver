@@ -528,7 +528,7 @@ CKatana::moveRobotToEnc4D(std::vector<int> target, int velocity, int acceleratio
 	     speed.push_back(max(static_cast<int>((static_cast<double>(diffMot.at(n))/maxDistance) * velocity),10));
        if(n == 2)
        {
-        speed[2] = speed[2] + 6;
+        speed[2] = speed[2] + 9;
        }
        if(n == 3)
        {
