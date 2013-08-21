@@ -526,16 +526,20 @@ CKatana::moveRobotToEnc4D(std::vector<int> target, int velocity, int acceleratio
 	for (n=0;n<numberOfMotors;n++){
 	     oldSpeed.push_back(getMotorVelocityLimit(n));
 	     speed.push_back(max(static_cast<int>((static_cast<double>(diffMot.at(n))/maxDistance) * velocity),10));
-       /*if(n == 2)
+       if(n == 2)
        {
         speed[2] = speed[2] + 9;
        }
-       if(n == 3)
+       /*if(n == 3)
        {
         speed[3] = speed[3] + 6;
        }*/
 	     setMotorVelocityLimit(n,speed.at(n));
 	     setMotorAccelerationLimit(n,acceleration);
+       if(n == 2)
+       {
+          setMotorAccelerationLimit(n,2);
+       }
 	}
 
 	//Move each motor to the target position
